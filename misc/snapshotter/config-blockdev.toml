@@ -10,7 +10,7 @@ daemon_mode = "none"
 # Use `blockdev` for tarfs
 fs_driver = "blockdev"
 # Path to nydus-image binary
-nydusimage_path = "/usr/local/bin/nydus-image"
+nydusimage_path = "/opt/nydus/bin/nydus-image"
 
 [remote]
 skip_ssl_verify = true
