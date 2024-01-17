@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -15,113 +16,127 @@ kind: Pod
 metadata:
   name: nydus-snapshotter
   namespace: nydus-system
+  labels:
+    app: nydus-snapshotter
 spec:
-  containers:
-    - name: nydus-snapshotter
-      image: local-dev:e2e
-      imagePullPolicy: IfNotPresent
-      args:
-        - containerd-nydus-grpc
-        - --nydusd /usr/local/bin/nydusd
-        - --nydusd-config /etc/nydus/nydusd.json
-        - --config /etc/nydus/config.toml
-        - --log-level debug
-        - --daemon-mode shared
-        - --log-to-stdout
-      securityContext:
-        privileged: true
-      volumeMounts:
-        - mountPath: /etc/nydus/
-          name: nydus-all-config
-        - mountPath: /var/lib/containerd-nydus
-          mountPropagation: Bidirectional
-          name: nydus-lib
-        - mountPath: /run/containerd-nydus
-          mountPropagation: Bidirectional
-          name: nydus-run
-        - mountPath: /run/containerd
-          mountPropagation: Bidirectional
-          name: containerd-run
-        - mountPath: /dev/fuse
-          name: fuse
-        - mountPath: /etc/containerd/config.toml
-          name: containerd-conf
+  serviceAccountName: nydus-snapshotter-sa
   hostNetwork: true
   hostPID: true
-  serviceAccountName: nydus-snapshotter-sa
+  containers:
+    - name: nydus-snapshotter
+      image: "local-dev:e2e"
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: FS_DRIVER
+          valueFrom:
+            configMapKeyRef:
+              name: nydus-snapshotter-configs
+              key: FS_DRIVER
+              optional: true
+        - name: ENABLE_CONFIG_FROM_VOLUME
+          valueFrom:
+            configMapKeyRef:
+              name: nydus-snapshotter-configs
+              key: ENABLE_CONFIG_FROM_VOLUME
+              optional: true
+        - name: ENABLE_RUNTIME_SPECIFIC_SNAPSHOTTER
+          valueFrom:
+            configMapKeyRef:
+              name: nydus-snapshotter-configs
+              key: ENABLE_RUNTIME_SPECIFIC_SNAPSHOTTER
+              optional: true
+        - name: ENABLE_SYSTEMD_SERVICE
+          valueFrom:
+            configMapKeyRef:
+              name: nydus-snapshotter-configs
+              key: ENABLE_SYSTEMD_SERVICE
+              optional: true
+      lifecycle:
+        preStop:
+          exec:
+            command:
+              - "bash"
+              - "-c"
+              - |
+                /opt/nydus-artifacts/opt/nydus/snapshotter.sh cleanup
+      command:
+        - bash
+        - -c
+        - |-
+          /opt/nydus-artifacts/opt/nydus/snapshotter.sh deploy
+      volumeMounts:
+        - name: config-volume
+          mountPath: "/etc/nydus-snapshotter"
+        - name: nydus-lib
+          mountPath: "/var/lib/containerd-nydus"
+          mountPropagation: Bidirectional
+        - name: nydus-run
+          mountPath: "/run/containerd-nydus"
+          mountPropagation: Bidirectional
+        - name: nydus-opt
+          mountPath: "/opt/nydus"
+          mountPropagation: Bidirectional
+        - name: nydus-etc
+          mountPath: "/etc/nydus"
+          mountPropagation: Bidirectional
+        - name: containerd-conf
+          mountPath: "/etc/containerd/config.toml"
+        - name: local-bin
+          mountPath: "/usr/local/bin/"
+        - name: etc-systemd-system
+          mountPath: "/etc/systemd/system/"
+        - name: fuse
+          mountPath: /dev/fuse
+      securityContext:
+        privileged: true
+
   volumes:
-    - name: nydus-all-config
-      projected:
-        sources:
-          - configMap:
-              name: nydusd-config
-          - configMap:
-              name: snapshotter-config
-    - hostPath:
+    - name: config-volume
+      configMap:
+        name: nydus-snapshotter-configs
+        optional: true
+    - name: nydus-run
+      hostPath:
         path: /run/containerd-nydus
         type: DirectoryOrCreate
-      name: nydus-run
-    - hostPath:
+    - name: nydus-lib
+      hostPath:
         path: /var/lib/containerd-nydus
         type: DirectoryOrCreate
-      name: nydus-lib
-    - hostPath:
-        path: /run/containerd
-        type: Directory
-      name: containerd-run
-    - hostPath:
-        path: /dev/fuse
-      name: fuse
-    - hostPath:
+    - name: nydus-etc
+      hostPath:
+          path: /etc/nydus
+          type: DirectoryOrCreate
+    - name: nydus-opt
+      hostPath:
+        path: /opt/nydus
+        type: DirectoryOrCreate
+    - name: containerd-conf
+      hostPath:
         path: /etc/containerd/config.toml
-        type: ""
-      name: containerd-conf
+    - name: local-bin
+      hostPath:
+        path: /usr/local/bin/
+    - name: etc-systemd-system
+      hostPath:
+        path: /etc/systemd/system/
+    - name: fuse
+      hostPath:
+        path: /dev/fuse
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nydusd-config
+  name: nydus-snapshotter-configs
+  labels:
+    app: nydus-snapshotter
   namespace: nydus-system
 data:
-  nydusd.json: |-
-    {
-      "device": {
-        "backend": {
-          "type": "registry",
-          "config": {
-            "scheme": "",
-            "skip_verify": true,
-            "timeout": 10,
-            "connect_timeout": 10,
-            "retry_limit": 2
-          }
-        },
-        "cache": {
-          "type": "blobcache",
-          "config": {
-            "work_dir": "/var/lib/nydus/cache/"
-          }
-        }
-      },
-      "mode": "direct",
-      "digest_validate": false,
-      "iostats_files": false,
-      "enable_xattr": true,
-      "amplify_io": 1048576,
-      "fs_prefetch": {
-        "enable": true,
-        "threads_count": 10,
-        "merging_size": 131072,
-        "bandwidth_rate": 1048576
-      }
-    }
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: snapshotter-config
-  namespace: nydus-system
-data:
+  FS_DRIVER: "fusedev"
+  ENABLE_CONFIG_FROM_VOLUME: "true"
+  ENABLE_RUNTIME_SPECIFIC_SNAPSHOTTER: "false"
+  ENABLE_SYSTEMD_SERVICE: "true"
+
   config.toml: |-
     version = 1
     root = "/var/lib/containerd-nydus"
@@ -145,7 +160,7 @@ data:
     # How to process when daemon dies: "none", "restart" or "failover"
     recover_policy = "restart"
     # Specify a configuration file for nydusd
-    nydusd_config = "/etc/nydus/nydusd.json"
+    nydusd_config = "/etc/nydus/nydusd-config.json"
     # The fuse or fscache IO working threads started by nydusd
     threads_number = 4
 
@@ -187,3 +202,36 @@ data:
     [image]
     public_key_file = ""
     validate_signature = false
+
+  nydusd-config.json: |-
+    {
+        "device": {
+          "backend": {
+            "type": "registry",
+            "config": {
+              "scheme": "",
+              "skip_verify": true,
+              "timeout": 10,
+              "connect_timeout": 10,
+              "retry_limit": 2
+            }
+          },
+          "cache": {
+            "type": "blobcache",
+            "config": {
+              "work_dir": "/var/lib/nydus/cache/"
+            }
+          }
+        },
+        "mode": "direct",
+        "digest_validate": false,
+        "iostats_files": false,
+        "enable_xattr": true,
+        "amplify_io": 1048576,
+        "fs_prefetch": {
+          "enable": true,
+          "threads_count": 10,
+          "merging_size": 131072,
+          "bandwidth_rate": 1048576
+        }
+      }
