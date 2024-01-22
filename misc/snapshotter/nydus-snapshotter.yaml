@@ -8,9 +8,9 @@ metadata:
   namespace: nydus-system
 data:
   FS_DRIVER: "fusedev"
-  ENABLE_CONFIG_FROM_VOLUME: true
-  ENABLE_RUNTIME_SPECIFIC_SNAPSHOTTER: false
-  ENABLE_SYSTEMD_SERVICE: true
+  ENABLE_CONFIG_FROM_VOLUME: "true"
+  ENABLE_RUNTIME_SPECIFIC_SNAPSHOTTER: "false"
+  ENABLE_SYSTEMD_SERVICE: "true"
 
   config.toml: |-
     version = 1

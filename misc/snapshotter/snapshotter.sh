@@ -198,6 +198,7 @@ function deploy_snapshotter() {
         echo "running snapshotter as standalone process"
         ${COMMANDLINE} &
     fi
+    kubectl label node "$NODE_NAME" --overwrite "dragonfly/nydus-snapshotter=true"
 }
 
 function cleanup_snapshotter() {
@@ -218,6 +219,7 @@ function cleanup_snapshotter() {
     else
         kill -9 $pid || true
     fi
+    kubectl label node "$NODE_NAME" --overwrite "dragonfly/nydus-snapshotter=false"
     wait_service_active 30 5 containerd
     echo "Removing nydus-snapshotter artifacts from host"
     rm -f "${SNAPSHOTTER_BINARY}"
@@ -239,6 +241,8 @@ function main() {
         print_usage
         die "invalid arguments"
     fi
+
+    echo "nodeName: ${NODE_NAME}"
 
     case "$action" in
     deploy)
