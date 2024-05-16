@@ -63,6 +63,12 @@ jobs:
           if [ "${{ matrix.build-linker }}" != "static" ]; then
             sudo apt-get install -y gcc-${{ matrix.build-linker }}-linux-gnu
           fi
+      - name: Pin docker image version to release version
+        uses: MathieuSoysal/replace-string-in-file@v1.0.0
+        with:
+          file: misc/snapshotter/base/nydus-snapshotter.yaml
+          old-string: "ghcr.io/containerd/nydus-snapshotter:latest"
+          new-string: "ghcr.io/containerd/nydus-snapshotter:${{ github.ref_name }}"
       - name: build nydus-snapshotter and optimizer
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
