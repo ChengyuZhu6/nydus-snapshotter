@@ -39,6 +39,12 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: "1.19.6"
+      - name: Pin docker image version to release version
+        uses: MathieuSoysal/replace-string-in-file@v1.0.0
+        with:
+          file: misc/snapshotter/base/nydus-snapshotter.yaml
+          old-string: "ghcr.io/containerd/nydus-snapshotter:latest"
+          new-string: "ghcr.io/containerd/nydus-snapshotter:${{ github.ref_name }}"
       - name: cache go mod
         uses: actions/cache@v3
         with:
