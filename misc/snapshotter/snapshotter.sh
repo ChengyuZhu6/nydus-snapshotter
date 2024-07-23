@@ -247,7 +247,7 @@ function remove_images() {
 function cleanup_snapshotter() {
     echo "cleaning up snapshotter"
 
-    pid=$(ps -ef | grep containerd-nydus-grpc | grep -v grep | awk '{print $1}')
+    pid=$(ps -ef | grep containerd-nydus-grpc | grep -v grep | awk '{print $1}' || true)
     if [ ! -z "$pid" ]; then
         remove_images
     fi
