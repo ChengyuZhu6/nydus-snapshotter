@@ -262,10 +262,11 @@ function cleanup_snapshotter() {
     fi
     wait_service_active 30 5 ${CONTAINER_RUNTIME}
     echo "Removing nydus-snapshotter artifacts from host"
-    rm -f "${NYDUS_BINARY_DIR}/nydus*"
-    rm -rf "${NYDUS_CONFIG_DIR}/*"
-    rm -rf "${SNAPSHOTTER_SCRYPT_DIR}/*"
-    rm -rf "${NYDUS_LIB_DIR}/*"
+    rm -f "${SNAPSHOTTER_BINARY}"
+    rm -f "${NYDUS_BINARY_DIR}"/nydus*
+    rm -rf "${NYDUS_CONFIG_DIR}"/*
+    rm -rf "${SNAPSHOTTER_SCRYPT_DIR}"/*
+    rm -rf "${NYDUS_LIB_DIR}"/*
     echo "cleaned up snapshotter"
 }
 
