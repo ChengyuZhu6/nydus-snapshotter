@@ -51,10 +51,10 @@ print_usage() {
     echo "Usage: $0 [deploy/cleanup]"
 }
 
-wait_service_active(){
+wait_service_active() {
     local wait_time="$1"
-	local sleep_time="$2"
-	local service="$3"
+    local sleep_time="$2"
+    local service="$3"
 
     nsenter -t 1 -m systemctl restart $service
 
@@ -62,16 +62,16 @@ wait_service_active(){
     while [ "$wait_time" -gt 0 ]; do
         if nsenter -t 1 -m systemctl is-active --quiet $service; then
             echo "$service is running"
-            return 0  
+            return 0
         else
             sleep "$sleep_time"
-			wait_time=$((wait_time-sleep_time))
+            wait_time=$((wait_time - sleep_time))
         fi
     done
 
     echo "Timeout reached. $service may not be running."
     nsenter -t 1 -m systemctl status $service
-    return 1  
+    return 1
 }
 
 function fs_driver_handler() {
@@ -79,27 +79,27 @@ function fs_driver_handler() {
         SNAPSHOTTER_CONFIG="${NYDUS_CONFIG_DIR}/config.toml"
     else
         case "${FS_DRIVER}" in
-        fusedev) 
-            sed -i -e "s|nydusd_config = .*|nydusd_config = \"${NYDUS_CONFIG_DIR}/nydusd-fusedev.json\"|" "${SNAPSHOTTER_CONFIG}" 
-            sed -i -e "s|fs_driver = .*|fs_driver = \"fusedev\"|" "${SNAPSHOTTER_CONFIG}" 
-            sed -i -e "s|daemon_mode = .*|daemon_mode = \"multiple\"|" "${SNAPSHOTTER_CONFIG}" 
+        fusedev)
+            sed -i -e "s|nydusd_config = .*|nydusd_config = \"${NYDUS_CONFIG_DIR}/nydusd-fusedev.json\"|" "${SNAPSHOTTER_CONFIG}"
+            sed -i -e "s|fs_driver = .*|fs_driver = \"fusedev\"|" "${SNAPSHOTTER_CONFIG}"
+            sed -i -e "s|daemon_mode = .*|daemon_mode = \"multiple\"|" "${SNAPSHOTTER_CONFIG}"
             ;;
-        fscache) 
-            sed -i -e "s|nydusd_config = .*|nydusd_config = \"${NYDUS_CONFIG_DIR}/nydusd-fscache.json\"|" "${SNAPSHOTTER_CONFIG}" 
+        fscache)
+            sed -i -e "s|nydusd_config = .*|nydusd_config = \"${NYDUS_CONFIG_DIR}/nydusd-fscache.json\"|" "${SNAPSHOTTER_CONFIG}"
             sed -i -e "s|fs_driver = .*|fs_driver = \"fscache\"|" "${SNAPSHOTTER_CONFIG}"
-            sed -i -e "s|daemon_mode = .*|daemon_mode = \"multiple\"|" "${SNAPSHOTTER_CONFIG}"  
+            sed -i -e "s|daemon_mode = .*|daemon_mode = \"multiple\"|" "${SNAPSHOTTER_CONFIG}"
             ;;
-        blockdev) 
-            sed -i -e "s|fs_driver = .*|fs_driver = \"blockdev\"|" "${SNAPSHOTTER_CONFIG}" 
-            sed -i -e "s|enable_kata_volume = .*|enable_kata_volume = true|" "${SNAPSHOTTER_CONFIG}" 
-            sed -i -e "s|enable_tarfs = .*|enable_tarfs = true|" "${SNAPSHOTTER_CONFIG}" 
-            sed -i -e "s|daemon_mode = .*|daemon_mode = \"none\"|" "${SNAPSHOTTER_CONFIG}"  
-            sed -i -e "s|export_mode = .*|export_mode = \"layer_block_with_verity\"|" "${SNAPSHOTTER_CONFIG}"  
+        blockdev)
+            sed -i -e "s|fs_driver = .*|fs_driver = \"blockdev\"|" "${SNAPSHOTTER_CONFIG}"
+            sed -i -e "s|enable_kata_volume = .*|enable_kata_volume = true|" "${SNAPSHOTTER_CONFIG}"
+            sed -i -e "s|enable_tarfs = .*|enable_tarfs = true|" "${SNAPSHOTTER_CONFIG}"
+            sed -i -e "s|daemon_mode = .*|daemon_mode = \"none\"|" "${SNAPSHOTTER_CONFIG}"
+            sed -i -e "s|export_mode = .*|export_mode = \"layer_block_with_verity\"|" "${SNAPSHOTTER_CONFIG}"
             ;;
-        proxy) 
-            sed -i -e "s|fs_driver = .*|fs_driver = \"proxy\"|" "${SNAPSHOTTER_CONFIG}" 
-            sed -i -e "s|enable_kata_volume = .*|enable_kata_volume = true|" "${SNAPSHOTTER_CONFIG}" 
-            sed -i -e "s|daemon_mode = .*|daemon_mode = \"none\"|" "${SNAPSHOTTER_CONFIG}"  
+        proxy)
+            sed -i -e "s|fs_driver = .*|fs_driver = \"proxy\"|" "${SNAPSHOTTER_CONFIG}"
+            sed -i -e "s|enable_kata_volume = .*|enable_kata_volume = true|" "${SNAPSHOTTER_CONFIG}"
+            sed -i -e "s|daemon_mode = .*|daemon_mode = \"none\"|" "${SNAPSHOTTER_CONFIG}"
             ;;
         *) die "invalid fs driver ${FS_DRIVER}" ;;
         esac
@@ -114,13 +114,12 @@ function configure_snapshotter() {
     # Copy the container runtime config to a backup
     cp "$CONTAINER_RUNTIME_CONFIG" "$CONTAINER_RUNTIME_CONFIG".bak.nydus
 
-
     # When trying to edit the config file that is mounted by docker with `sed -i`, the error would happend:
-    # sed: cannot rename /etc/containerd/config.tomlpmdkIP: Device or resource busy  
-    # The reason is that `sed`` with option `-i` creates new file, and then replaces the old file with the new one, 
-    # which definitely will change the file inode. But the file is mounted by docker, which means we are not allowed to 
+    # sed: cannot rename /etc/containerd/config.tomlpmdkIP: Device or resource busy
+    # The reason is that `sed`` with option `-i` creates new file, and then replaces the old file with the new one,
+    # which definitely will change the file inode. But the file is mounted by docker, which means we are not allowed to
     # change its inode from within docker container.
-    # 
+    #
     # So we copy the original file to a backup, make changes to the backup, and then overwrite the original file with the backup.
     cp "$CONTAINER_RUNTIME_CONFIG" "$CONTAINER_RUNTIME_CONFIG".bak
     # Check and add nydus proxy plugin in the config
@@ -138,36 +137,36 @@ EOF
 
     if grep -q 'disable_snapshot_annotations' "$CONTAINER_RUNTIME_CONFIG".bak; then
         sed -i -e "s|disable_snapshot_annotations = .*|disable_snapshot_annotations = false|" \
-                "${CONTAINER_RUNTIME_CONFIG}".bak
+            "${CONTAINER_RUNTIME_CONFIG}".bak
     else
         sed -i '/\[plugins\..*\.containerd\]/a\disable_snapshot_annotations = false' \
-			"${CONTAINER_RUNTIME_CONFIG}".bak
+            "${CONTAINER_RUNTIME_CONFIG}".bak
     fi
     if grep -q 'discard_unpacked_layers' "$CONTAINER_RUNTIME_CONFIG".bak; then
         sed -i -e "s|discard_unpacked_layers = .*|discard_unpacked_layers = false|" \
-                "${CONTAINER_RUNTIME_CONFIG}".bak
+            "${CONTAINER_RUNTIME_CONFIG}".bak
     else
         sed -i '/\[plugins\..*\.containerd\]/a\discard_unpacked_layers = false' \
-			"${CONTAINER_RUNTIME_CONFIG}".bak
+            "${CONTAINER_RUNTIME_CONFIG}".bak
     fi
 
     if [ "${ENABLE_RUNTIME_SPECIFIC_SNAPSHOTTER}" == "false" ]; then
         sed -i -e '/\[plugins\..*\.containerd\]/,/snapshotter =/ s/snapshotter = "[^"]*"/snapshotter = "nydus"/' "${CONTAINER_RUNTIME_CONFIG}".bak
     fi
-    
-    cat "${CONTAINER_RUNTIME_CONFIG}".bak >  "${CONTAINER_RUNTIME_CONFIG}"
+
+    cat "${CONTAINER_RUNTIME_CONFIG}".bak >"${CONTAINER_RUNTIME_CONFIG}"
 }
 
 function install_snapshotter() {
     echo "install nydus snapshotter artifacts"
-    find "${SNAPSHOTTER_ARTIFACTS_DIR}${NYDUS_BINARY_DIR}" -type f -exec install -Dm 755 -t "${NYDUS_BINARY_DIR}" "{}"  \;
-    find "${SNAPSHOTTER_ARTIFACTS_DIR}${NYDUS_CONFIG_DIR}" -type f -exec install -Dm 644 -t "${NYDUS_CONFIG_DIR}" "{}"  \;
+    find "${SNAPSHOTTER_ARTIFACTS_DIR}${NYDUS_BINARY_DIR}" -type f -exec install -Dm 755 -t "${NYDUS_BINARY_DIR}" "{}" \;
+    find "${SNAPSHOTTER_ARTIFACTS_DIR}${NYDUS_CONFIG_DIR}" -type f -exec install -Dm 644 -t "${NYDUS_CONFIG_DIR}" "{}" \;
     install -D -m 644 "${SNAPSHOTTER_ARTIFACTS_DIR}${SNAPSHOTTER_SCRYPT_DIR}/snapshotter.sh" "${SNAPSHOTTER_SCRYPT_DIR}/snapshotter.sh"
     if [ "${ENABLE_SYSTEMD_SERVICE}" == "true" ]; then
         install -D -m 644 "${SNAPSHOTTER_ARTIFACTS_DIR}${SNAPSHOTTER_SERVICE}" "${SNAPSHOTTER_SERVICE}"
     fi
     if [ "${ENABLE_CONFIG_FROM_VOLUME}" == "true" ]; then
-        find "/etc/nydus-snapshotter" -type f -exec install -Dm 644 -t "${NYDUS_CONFIG_DIR}" "{}"  \;
+        find "/etc/nydus-snapshotter" -type f -exec install -Dm 644 -t "${NYDUS_CONFIG_DIR}" "{}" \;
     fi
 }
 
@@ -192,36 +191,81 @@ function deploy_snapshotter() {
 
 }
 
+function remove_images() {
+    local SNAPSHOTTER="nydus"
+    local NAMESPACE="k8s.io"
+    local ctr_args="nsenter -t 1 -m ctr"
+
+    if [[ " k3s k3s-agent rke2-agent rke2-server " =~ " ${CONTAINER_RUNTIME} " ]]; then
+        ctr_args+=" --address /run/k3s/containerd/containerd.sock"
+    fi
+    ctr_args+=" --namespace $NAMESPACE"
+
+    # List all snapshots for nydus snapshotter
+    local SNAPSHOTS=$($ctr_args snapshot --snapshotter $SNAPSHOTTER ls | awk 'NR>1 {print $1}')
+    echo "Images associated with snapshotter $SNAPSHOTTER:"
+
+    # Loop through each snapshot and find associated contents
+    for SNAPSHOT in $SNAPSHOTS; do
+        local CONTENTS=$($ctr_args content ls | grep $SNAPSHOT | awk '{print $1}')
+        echo "Snapshot: $SNAPSHOT, Contents: $CONTENTS"
+        if [ -z "$CONTENTS" ]; then
+            continue
+        fi
+        # Loop through each content and find associated digests of images
+        for CONTENT in $CONTENTS; do
+            local DIGESTS=$($ctr_args image ls | grep $CONTENT | awk '{print $3}')
+            echo "Content: $CONTENT, Digests: $DIGESTS"
+            if [ -z "$DIGESTS" ]; then
+                continue
+            fi
+            # Loop through each digest and find associated image references
+            for DIGEST in $DIGESTS; do
+                local IMAGES=$($ctr_args image ls | grep $DIGEST | awk '{print $1}')
+                echo "Digest: $DIGEST, Images: $IMAGES"
+                if [ -z "$IMAGES" ]; then
+                    continue
+                fi
+                for IMAGE in $IMAGES; do
+                    # Delete the image
+                    $ctr_args images rm $IMAGE >/dev/null 2>&1 || true
+                    echo "Images $IMAGES removed"
+                done
+            done
+            # Delete the content
+            $ctr_args content rm $CONTENT >/dev/null 2>&1 || true
+            echo "content $CONTENT removed"
+        done
+        # Delete the snapshot
+        $ctr_args snapshot --snapshotter $SNAPSHOTTER rm $SNAPSHOT >/dev/null || true
+        echo "snapshot $SNAPSHOT removed"
+    done
+    echo "INFO: Images removed"
+}
+
 function cleanup_snapshotter() {
     echo "cleaning up snapshotter"
 
     pid=$(ps -ef | grep containerd-nydus-grpc | grep -v grep | awk '{print $1}')
     if [ ! -z "$pid" ]; then
-        local ctr_args=""
-        if [[ " k3s k3s-agent rke2-agent rke2-server " =~ " ${CONTAINER_RUNTIME} " ]]; then
-            ctr_args="--address /run/k3s/containerd/containerd.sock "
-        fi
-        ctr_args+="--namespace k8s.io snapshot --snapshotter nydus"
-        for i in $(nsenter -t 1 -m ctr ${ctr_args} list | grep -v KEY | cut -d' ' -f1); do
-            nsenter -t 1 -m ctr ${ctr_args} rm $i || true
-        done
+        remove_images
     fi
-    echo "Recover containerd config"
+    echo "INFO: Recover containerd config"
     cat "$CONTAINER_RUNTIME_CONFIG".bak.nydus >"$CONTAINER_RUNTIME_CONFIG"
     if [ "${ENABLE_SYSTEMD_SERVICE}" == "true" ]; then
         nsenter -t 1 -m systemctl stop nydus-snapshotter.service
         nsenter -t 1 -m systemctl disable --now nydus-snapshotter.service
-        rm -f "${SNAPSHOTTER_SERVICE}"
+        rm -f "${SNAPSHOTTER_SERVICE}" || true
     else
         kill -9 $pid || true
     fi
     wait_service_active 30 5 ${CONTAINER_RUNTIME}
     echo "Removing nydus-snapshotter artifacts from host"
-    rm -f "${SNAPSHOTTER_BINARY}"
-    rm -f "${NYDUS_BINARY_DIR}/nydus*"
-    rm -rf "${NYDUS_CONFIG_DIR}/*"
-    rm -rf "${SNAPSHOTTER_SCRYPT_DIR}/*"
-    rm -rf "${NYDUS_LIB_DIR}/*"
+    bash -c "rm -f ${NYDUS_BINARY_DIR}/nydus*"
+    bash -c "rm -rf ${NYDUS_CONFIG_DIR}/*"
+    bash -c "rm -rf ${SNAPSHOTTER_SCRYPT_DIR}/*"
+    bash -c "rm -rf ${NYDUS_LIB_DIR}/*"
+    echo "cleaned up snapshotter"
 }
 
 function get_container_runtime() {
@@ -255,7 +299,7 @@ function main() {
     if [[ $euid -ne 0 ]]; then
         die "This script must be run as root"
     fi
-
+    echo "--------------------------------"
     CONTAINER_RUNTIME=$(get_container_runtime)
     if [[ " k3s k3s-agent rke2-agent rke2-server " =~ " ${CONTAINER_RUNTIME} " ]]; then
         CONTAINER_RUNTIME_CONFIG_TMPL="${CONTAINER_RUNTIME_CONFIG}.tmpl"
@@ -268,7 +312,7 @@ function main() {
         if [ ! -f "${CONTAINER_RUNTIME_CONFIG}" ]; then
             mkdir -p $(dirname ${CONTAINER_RUNTIME_CONFIG}) || true
             if [ -x $(command -v ${CONTAINER_RUNTIME}) ]; then
-                ${CONTAINER_RUNTIME} config default > ${CONTAINER_RUNTIME_CONFIG}
+                ${CONTAINER_RUNTIME} config default >${CONTAINER_RUNTIME_CONFIG}
             else
                 die "Not able to find an executable ${CONTAINER_RUNTIME} binary to create the default config"
             fi
@@ -286,6 +330,7 @@ function main() {
     case "$action" in
     deploy)
         deploy_snapshotter
+        sleep infinity
         ;;
     cleanup)
         cleanup_snapshotter
@@ -296,7 +341,6 @@ function main() {
         ;;
     esac
 
-    sleep infinity
 }
 
 main "$@"
