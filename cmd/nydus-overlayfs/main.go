@@ -116,7 +116,7 @@ func run(args cli.Args) error {
 	}
 
 	flags, data := parseOptions(margs.options)
-	log.L.Infof("fsType: %v, target: %v, flags: %v, data: %v", margs.fsType, margs.target, uintptr(flags), data)
+	log.L.Warnf("fsType: %v, target: %v, flags: %v, data: %v", margs.fsType, margs.target, uintptr(flags), data)
 
 	err = syscall.Mount(margs.fsType, margs.target, margs.fsType, uintptr(flags), data)
 	if err != nil {
