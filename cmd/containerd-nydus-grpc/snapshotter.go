@@ -71,7 +71,7 @@ func Serve(ctx context.Context, sn snapshots.Snapshotter, options ServeOptions, 
 	if err != nil {
 		return errors.Wrapf(err, "listen socket %q", options.ListeningSocketPath)
 	}
-
+	log.L.Infof("options.EnableCRIKeychain %v", options.EnableCRIKeychain)
 	if options.EnableCRIKeychain {
 		auth.AddImageProxy(ctx, rpc, options.ImageServiceAddress)
 	}

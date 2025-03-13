@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -58,6 +59,27 @@ type snapshotter struct {
 	enableKataVolume     bool
 	syncRemove           bool
 	cleanupOnClose       bool
+}
+
+func printStack() {
+	pcs := make([]uintptr, 10)   // 10 is the number of stack frames to capture
+	n := runtime.Callers(2, pcs) // Skip 2 frames (printStack and caller)
+	pcs = pcs[:n]
+
+	for _, pc := range pcs {
+		fn := runtime.FuncForPC(pc)
+		file, line := fn.FileLine(pc)
+		fmt.Printf("%s:%d %s\n", file, line, fn.Name())
+	}
+}
+
+func CustomPrint(v ...interface{}) {
+	_, file, line, ok := runtime.Caller(1)
+	if ok {
+		fmt.Printf("********** [debug] %s:%d: ", file, line)
+	}
+	fmt.Println(fmt.Sprint(v...))
+	printStack()
 }
 
 func NewSnapshotter(ctx context.Context, cfg *config.SnapshotterConfig) (snapshots.Snapshotter, error) {
@@ -318,16 +340,19 @@ func (o *snapshotter) Cleanup(ctx context.Context) error {
 }
 
 func (o *snapshotter) Stat(ctx context.Context, key string) (snapshots.Info, error) {
+	CustomPrint("Stat", key)
 	_, info, _, err := snapshot.GetSnapshotInfo(ctx, o.ms, key)
 	return info, err
 }
 
 func (o *snapshotter) Update(ctx context.Context, info snapshots.Info, fieldpaths ...string) (snapshots.Info, error) {
+	CustomPrint("Update", info, fieldpaths)
 	return snapshot.UpdateSnapshotInfo(ctx, o.ms, info, fieldpaths...)
 }
 
 func (o *snapshotter) Usage(ctx context.Context, key string) (snapshots.Usage, error) {
 	id, info, usage, err := snapshot.GetSnapshotInfo(ctx, o.ms, key)
+	CustomPrint("Usage", id, info, usage, err)
 	if err != nil {
 		return snapshots.Usage{}, err
 	}
@@ -360,6 +385,7 @@ func (o *snapshotter) Usage(ctx context.Context, key string) (snapshots.Usage, e
 }
 
 func (o *snapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, error) {
+	CustomPrint("Mounts", key)
 	log.L.Debugf("[Mounts] snapshot %s", key)
 	if timer := collector.NewSnapshotMetricsTimer(collector.SnapshotMethodMount); timer != nil {
 		defer timer.ObserveDuration()
@@ -446,7 +472,7 @@ func (o *snapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, er
 
 func (o *snapshotter) Prepare(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
 	log.L.Infof("[Prepare] snapshot with key %s parent %s", key, parent)
-
+	CustomPrint("Prepare", key, parent)
 	if timer := collector.NewSnapshotMetricsTimer(collector.SnapshotMethodPrepare); timer != nil {
 		defer timer.ObserveDuration()
 	}
@@ -700,11 +726,13 @@ func (o *snapshotter) upperPath(id string) string {
 // Get the rootdir of nydus image file system contents.
 func (o *snapshotter) lowerPath(id string) (mnt string, err error) {
 	if mnt, err = o.fs.MountPoint(id); err == nil {
+		log.L.Infof("lowerPath %s", mnt)
 		return mnt, nil
 	} else if errors.Is(err, errdefs.ErrNotFound) {
+		log.L.Infof("lowerPath not found and set as %s", filepath.Join(o.root, "snapshots", id, "fs"))
 		return filepath.Join(o.root, "snapshots", id, "fs"), nil
 	}
-
+	log.L.Infof("lowerPath error %v", err)
 	return "", err
 }
 
